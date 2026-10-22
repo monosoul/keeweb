@@ -177,8 +177,7 @@ class StorageGDrive extends StorageBase {
             resumeOnRedirect: true,
             urlParams: {
                 prompt: 'consent',
-                [GooglePickerTriggerParam]: 'true',
-                mimetypes: 'application/x-keepass,x-application/kdbx,application/octet-stream'
+                [GooglePickerTriggerParam]: 'true'
             }
         };
 

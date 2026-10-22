@@ -5,6 +5,8 @@ import { UrlFormat } from 'util/formatting/url-format';
 import { GDriveApps } from 'const/cloud-storage-apps';
 
 const NewFileIdPrefix = 'NewFile:';
+const GooglePickerTriggerParam = 'trigger_onepick';
+const GooglePickerResultParam = 'picked_file_ids';
 
 // https://developers.google.com/identity/protocols/oauth2/web-server
 
@@ -161,6 +163,69 @@ class StorageGDrive extends StorageBase {
                 });
             });
         });
+    }
+
+    listForOpen(dir, callback) {
+        if (!Features.isDesktop || dir) {
+            return this.list(dir, callback);
+        }
+
+        // The normal list() is also used by Save As; keep it unchanged.
+        this._pickedFileId = null;
+        const options = {
+            forceAuth: true,
+            resumeOnRedirect: true,
+            urlParams: {
+                prompt: 'consent',
+                [GooglePickerTriggerParam]: 'true',
+                mimetypes: 'application/x-keepass,x-application/kdbx,application/octet-stream'
+            }
+        };
+
+        this._oauthAuthorize((err) => {
+            if (err) {
+                return callback?.(err);
+            }
+            const pickedFileId = this._pickedFileId;
+            this._pickedFileId = null;
+            if (!pickedFileId) {
+                return callback?.('OAuth: no file selected');
+            }
+
+            const ts = this.logger.ts();
+            const url = UrlFormat.makeUrl(
+                `${this._baseUrl}/files/${encodeURIComponent(pickedFileId)}`,
+                { fields: 'id,name,mimeType,headRevisionId', supportsAllDrives: true }
+            );
+            this._xhr({
+                url,
+                responseType: 'json',
+                success: (file) => {
+                    if (!file || !file.id) {
+                        return callback?.('Google Drive picker: no file metadata');
+                    }
+                    if (file.mimeType === 'application/vnd.google-apps.folder') {
+                        return callback?.('Google Drive picker: select a database file');
+                    }
+                    this.logger.debug('Picked file', this.logger.ts(ts));
+                    callback?.(null, [
+                        {
+                            auto: true,
+                            name: file.name,
+                            path: file.id,
+                            rev: file.headRevisionId,
+                            dir: false
+                        }
+                    ]);
+                },
+                error: (error) => callback?.(error)
+            });
+        }, options);
+    }
+
+    _oauthProcessCode(result) {
+        const ids = result.pickedFileIds || result[GooglePickerResultParam];
+        this._pickedFileId = typeof ids === 'string' && ids && !ids.includes(',') ? ids : null;
     }
 
     list(dir, callback) {

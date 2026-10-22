@@ -63,7 +63,8 @@ const StorageOAuthListener = {
         logger.info('OAuth result with code received');
         const state = url.searchParams.get('state');
         const code = url.searchParams.get('code');
-        listener.emit('result', { state, code });
+        const pickedFileIds = url.searchParams.get('picked_file_ids');
+        listener.emit('result', { state, code, pickedFileIds });
     }
 };
 

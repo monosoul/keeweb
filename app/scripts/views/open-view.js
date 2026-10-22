@@ -804,7 +804,11 @@ class OpenView extends View {
         const icon = this.$el.find('.open__icon-storage[data-storage=' + storage.name + ']');
         this.busy = true;
         icon.toggleClass('flip3d', true);
-        storage.list(config && config.dir, (err, files) => {
+        const listFiles =
+            storage.name === 'gdrive' && !config && storage.listForOpen
+                ? storage.listForOpen.bind(storage)
+                : storage.list.bind(storage);
+        listFiles(config && config.dir, (err, files) => {
             icon.toggleClass('flip3d', false);
             this.busy = false;
             if (err || !files) {
@@ -826,6 +830,12 @@ class OpenView extends View {
                     header: Locale.openNothingFound,
                     body: Locale.openNothingFoundBody
                 });
+                return;
+            }
+
+            const autoFile = files.find((file) => file.auto && !file.dir);
+            if (autoFile) {
+                this.openStorageFile(storage, autoFile);
                 return;
             }
 

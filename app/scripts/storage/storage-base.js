@@ -214,18 +214,18 @@ class StorageBase {
         return new URL(`oauth-result/${this.name}.html`, redirectUrl).href;
     }
 
-    _oauthAuthorize(callback) {
-        if (this._tokenIsValid(this._oauthToken)) {
+    _oauthAuthorize(callback, requestOptions = {}) {
+        if (!requestOptions.forceAuth && this._tokenIsValid(this._oauthToken)) {
             return callback();
         }
         const opts = this._getOAuthConfig();
         const oldToken = this.runtimeData[this.name + 'OAuthToken'];
-        if (this._tokenIsValid(oldToken)) {
+        if (!requestOptions.forceAuth && this._tokenIsValid(oldToken)) {
             this._oauthToken = oldToken;
             return callback();
         }
 
-        if (oldToken && oldToken.refreshToken) {
+        if (!requestOptions.forceAuth && oldToken && oldToken.refreshToken) {
             return this._oauthExchangeRefreshToken(callback);
         }
 
@@ -253,7 +253,8 @@ class StorageBase {
             'redirect_uri': session.redirectUri,
             'response_type': 'code',
             ...pkceParams,
-            ...opts.urlParams
+            ...opts.urlParams,
+            ...requestOptions.urlParams
         });
 
         if (listener) {
@@ -262,7 +263,13 @@ class StorageBase {
                 callback('browser-auth-started');
             });
             listener.on('error', (err) => callback(err));
-            listener.on('result', (result) => this._oauthCodeReceived(result, session));
+            listener.on('result', (result) =>
+                this._oauthCodeReceived(
+                    result,
+                    session,
+                    requestOptions.resumeOnRedirect ? callback : undefined
+                )
+            );
             return;
         }
 
@@ -405,6 +412,7 @@ class StorageBase {
         }
 
         this.logger.debug('OAuth code received');
+        this._oauthProcessCode?.(result);
 
         if (Features.isDesktop) {
             Launcher.showMainWindow();

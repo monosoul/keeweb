@@ -1,0 +1,46 @@
+
+name: Build KeeWeb DEB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot
+          npm ci
+
+      - name: Build KeeWeb DEB
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: |
+          npx grunt \
+            default \
+            clean:desktop \
+            build-desktop-app-content \
+            build-desktop-executables-linux \
+            deb:linux-x64 \
+            --skip-sign
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: keeweb-linux-deb
+          path: dist/desktop/*.deb
+          if-no-files-found: error

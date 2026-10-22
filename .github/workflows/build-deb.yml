@@ -35,8 +35,13 @@ jobs:
             clean:desktop \
             build-desktop-app-content \
             build-desktop-executables-linux \
-            deb:linux-x64 \
             --skip-sign
+
+          mkdir -p dist/desktop
+
+          npx grunt deb:linux-x64 --skip-sign
+
+          dpkg-deb --info dist/desktop/*.deb
 
       - name: Upload DEB
         uses: actions/upload-artifact@v4
